@@ -1,28 +1,36 @@
 #include <iostream>
-#include <vector>
 #include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <thread>
-#include <mutex>
+#include "threadpool.h"
 using namespace std;
 
-mutex job_queue_mutex;
+struct fooInput {
+  int x;
+};
 
-void worker(int tnum) {
-  job_queue_mutex.lock();
-  cout << "tnum: " << tnum << "\n";
-  job_queue_mutex.unlock();
-}
+struct fooOutput {
+  int x;
+};
+
+class foo: public Job {
+public:
+  void run(void *in, void *out) {
+    fooInput *fin = (fooInput*)in;
+    fooOutput *fout = (fooOutput*)out;  
+    cout << "HI\n";
+  }
+};
 
 int main(int argc, char *argv[]) {
   int opt;
   extern char *optarg;
   extern int optopt;
-  static char usage[] = "args: ";
+  static char usage[] = "args: -n numThreads -q queueSize";
 
   // get number of CPU cores
   int numThreads = thread::hardware_concurrency();
+  int queueSize = 8;
 
   // parse command line arguements
   while ((opt = getopt(argc, argv, "n:")) != -1) {
@@ -36,6 +44,12 @@ int main(int argc, char *argv[]) {
         numThreads = n;
         break;
       }
+      case 'q' : {
+        int n = stoi(optarg);
+        assert(n > 0);
+        queueSize = n;        
+        break;
+      }
       default: {
         cout << usage << "\n";
         return 0;
@@ -43,17 +57,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  thread workers[numThreads];
+  ThreadPool tp(numThreads, queueSize);
+  tp.start();
 
-  // spawn numThreads number of threads
-  for (int i = 0; i < numThreads; i++) {
-    workers[i] = thread(worker, i + 1);
+  for (int i = 0; i < 10; i++) {
+    foo f;
+    tp.enqueue(&f, NULL, NULL);
   }
 
-  // join all threads
-  for (thread &t: workers) {
-    t.join();
-  }
-
+  tp.stop();
   return 0;
 }
