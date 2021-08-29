@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "threadpool.h"
+#include "conpool.h"
 using namespace std;
 
 struct fooInput {
@@ -57,14 +57,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ThreadPool tp(numThreads, queueSize);
-  tp.start();
+  ConPool pool(numThreads, queueSize);
+  pool.start();
 
   for (int i = 0; i < 10; i++) {
     foo f;
-    tp.enqueue(&f, NULL, NULL);
+    pool.enqueue(&f, NULL, NULL);
   }
 
-  tp.stop();
+  pool.stop();
   return 0;
 }
