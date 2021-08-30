@@ -12,8 +12,6 @@
 #include <mysql_connection.h>
 #include <cppconn/driver.h>
 #include <cppconn/exception.h>
-#include <cppconn/resultset.h>
-#include <cppconn/statement.h>
 using namespace std;
 
 class ConPool;
@@ -34,6 +32,7 @@ class ConPool {
   friend void worker(int id, ConPool* pool);  
 public:
   ConPool(int n, int q) {
+    assert(n > 0 && q > 0);
     numThreads = n;
     queueSize = q;
     empty.init(queueSize);
@@ -44,6 +43,7 @@ public:
     empty.wait();
     mu.lock();
     Job *j = (Job*)malloc(sz);
+    assert(j != NULL);
     memcpy(j, job, sz);
     jobQueue.push_back(j);
     mu.unlock();
