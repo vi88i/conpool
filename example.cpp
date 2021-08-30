@@ -13,7 +13,7 @@ using namespace std;
 Schema:
 CREATE TABLE mytable (
   name VARCHAR(80),
-  age in
+  age int
 );
 */
 
@@ -24,6 +24,7 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
+    con->setSchema("test");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
     prep_stmt->setInt(2, input.age);
@@ -39,6 +40,7 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
+    con->setSchema("test2");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
     prep_stmt->setInt(2, input.age);
@@ -53,13 +55,14 @@ int main(int argc, char *argv[]) {
   static char usage[] = "args: -n numThreads -q queueSize";
 
   // get number of CPU cores
+  string user, passwd, address;
   int numThreads = thread::hardware_concurrency();
   int queueSize = 1024;
 
   // parse command line arguements
-  while ((opt = getopt(argc, argv, "n:q:")) != -1) {
+  while ((opt = getopt(argc, argv, "n:q:u:p:a:")) != -1) {
     switch(opt) {
-      case 'n' : {
+      case 'n': {
         int n = stoi(optarg);
         assert(n > 0);
         if (n > numThreads) {
@@ -68,11 +71,26 @@ int main(int argc, char *argv[]) {
         numThreads = n;
         break;
       }
-      case 'q' : {
+      case 'q': {
         int n = stoi(optarg);
         assert(n > 0);
         queueSize = n;        
         break;
+      }
+      case 'p': {
+        string v(optarg);
+        passwd = v;
+        break;
+      } 
+      case 'u': {
+        string v(optarg);
+        user = v;
+        break;        
+      }
+      case 'a': {
+        string v(optarg);
+        address = v;
+        break;        
       }
       default: {
         print(usage, "\n");
@@ -81,10 +99,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ConPool pool(numThreads, queueSize);
+  ConPool pool(numThreads, queueSize, address, user, passwd);
   pool.start();
 
-  for (int i = 1; i <= 10; i++) {
+  for (int i = 1; i <= 100; i++) {
     QueryType1 q1;
     QueryType2 q2;
     strcpy(q1.input.name, "Vighnesh Nayak S");

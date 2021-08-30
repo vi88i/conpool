@@ -7,6 +7,7 @@
 #include <deque>
 #include <tuple>
 #include <cstring>
+#include <chrono>
 #include "utils.h"
 #include "semaphore.h"
 #include <mysql_connection.h>
@@ -19,24 +20,31 @@ void worker(int, ConPool*);
 
 class Job {
 public:
+  string db;
   virtual void run(sql::Connection*) = 0;
   virtual ~Job() {};
 };
 
 class ConPool {
+  long long execTime;
   int numThreads, queueSize;
+  string user, passwd, address;
   mutex mu;
   Semaphore empty, full;
   deque<Job*> jobQueue;
   vector<thread> workers;
   friend void worker(int id, ConPool* pool);  
 public:
-  ConPool(int n, int q) {
+  ConPool(int n, int q, string a, string u, string p) {
     assert(n > 0 && q > 0);
+    execTime = 0;
     numThreads = n;
     queueSize = q;
     empty.init(queueSize);
     full.init(0);
+    address = a;
+    user = u;
+    passwd = p;
   }
 
   void enqueue(Job *job, size_t sz) {
@@ -65,13 +73,14 @@ public:
 };
 
 void worker(int id, ConPool *pool) {
+  Job *job = NULL;
+
   try {
     sql::Driver *driver;
     sql::Connection *con;
 
     driver = get_driver_instance();
-    con = driver->connect("tcp://127.0.0.1:3306", "root", "viggi2000");
-    con->setSchema("test");    
+    con = driver->connect(pool->address, pool->user, pool->passwd);    
 
     print("Thread: ", id, " connected to mysql server...\n"); 
 
@@ -79,15 +88,25 @@ void worker(int id, ConPool *pool) {
       pool->full.wait();
       pool->mu.lock();
 
-      Job *job = pool->jobQueue.front();
+      auto start = chrono::high_resolution_clock::now();
+      
+      job = pool->jobQueue.front();
       pool->jobQueue.pop_front();
       job->run(con);
       free(job);
-      
+      job = NULL;
+
+      auto stop = chrono::high_resolution_clock::now();
+      auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
+      pool->execTime += duration.count();
+
       pool->mu.unlock();
       pool->empty.signal();
+
+      // print("Total: ", pool->execTime, "\n");  
     }
   } catch (sql::SQLException &e) {
+    free(job);
     print("# ERR: SQLException in ", __FILE__);
     print("(",  __FUNCTION__, ") on line ", __LINE__, "\n");
     print("# ERR: ", e.what());

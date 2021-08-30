@@ -7,6 +7,7 @@ using namespace std;
 
 mutex stdout_mutex;
 
+/* thread-safe cout */
 template <class T>
 void print(T t) {
   stdout_mutex.lock();
@@ -16,10 +17,10 @@ void print(T t) {
 
 template <class T, class... Args>
 void print(T t, Args... args) {
-    stdout_mutex.lock();
-    std::cout << t;
-    stdout_mutex.unlock();
-    print(args...);
+  stdout_mutex.lock();
+  std::cout << t;
+  stdout_mutex.unlock();
+  print(args...);
 }
 
 #endif

@@ -6,6 +6,9 @@ mysql connection pool for cpp using thread pool design pattern.
 - mysql-connector-cpp uses tcp to establish connection with mysql server. Every query requires tcp connection establishment and termination, which can slow things down.
 - conpool (Connection pool) uses thread pool design pattern. Here we spin <em>n</em> threads and each thread will establish tcp connection with mysql server during start up. conpool maintains a job queue of size <em>q</em> in which we can queue sql queries along with input data. Whenever a thread becomes available, it is assigned with a task from job queue. 
 - As we can see, we don't terminate already exisiting tcp connection and we are trying to reuse it as much as possible, this improves concurrency and tasks can be completed faster. 
+- More threads doesn't imply, higher concurrency. Because the optimal number of threads is a function of number of CPU cores, which is available through <code>thread::hardware_concurrency</code>.
+- :(, my laptop has just two CPU cores.
+
 
 ## Setup
 
@@ -18,15 +21,25 @@ $ g++ --std=c++17 -I/usr/include/mysql-cppconn-8 -I./mysql-connector-cpp/include
 ## Example
 
 ```c++
-// create a class which inherits abstract Job class, and implement run() method
-// also specify any input for query using Input struct
+...
+#include "conpool.h"
+#include <cppconn/prepared_statement.h>
+
+/* 
+  - create a class which inherits abstract Job class, and implement run(sql::Connection*) method
+  - describe schema in Input struct
+*/
 class QueryType1: public Job {
-public:
+public: 
+  /* write the schema of the relation */
   struct Input {
     char name[80];
     int age;
   } input;  
+  /* it is mandatory to override, as run(sql::Connection) pure virtual funcion */
   void run(sql::Connection *con) {
+    /* mention the database name, else error is thrown as no database is selected by default */
+    con->setSchema("test");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
     prep_stmt->setInt(2, input.age);
@@ -36,8 +49,12 @@ public:
 };
 
 ...
+/*
+  Make sure database and relations is already setup on mysql server.
+*/
 
-ConPool pool(numThreads, queueSize);
+
+ConPool pool(numThreads, queueSize, "tcp://127.0.0.1:3306", "username", "password");
 pool.start();
 
 QueryType1 q1;
