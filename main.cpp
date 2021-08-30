@@ -1,45 +1,49 @@
 #include <iostream>
+#include <cstring>
 #include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include "conpool.h"
+#include "utils.h"
 using namespace std;
 
-struct fooInput {
-  int x;
-};
-
-struct fooOutput {
-  int x;
-};
-
-class foo: public Job {
+class QueryType1: public Job {
 public:
-  void run(void *in, void *out) {
-    fooInput *fin = (fooInput*)in;
-    fooOutput *fout = (fooOutput*)out;  
-    cout << "HI\n";
+  struct Input {
+    int x;
+  } input;  
+  void run(sql::Connection *con) {
+    print("a: ", input.x, "\n");
+  }
+};
+
+class QueryType2: public Job {
+public:
+  struct Input {
+    int x;
+  } input;  
+  void run(sql::Connection *con) {
+    print("b: ", input.x, "\n");
   }
 };
 
 int main(int argc, char *argv[]) {
   int opt;
   extern char *optarg;
-  extern int optopt;
   static char usage[] = "args: -n numThreads -q queueSize";
 
   // get number of CPU cores
   int numThreads = thread::hardware_concurrency();
-  int queueSize = 8;
+  int queueSize = 1024;
 
   // parse command line arguements
-  while ((opt = getopt(argc, argv, "n:")) != -1) {
+  while ((opt = getopt(argc, argv, "n:q:")) != -1) {
     switch(opt) {
       case 'n' : {
         int n = stoi(optarg);
         assert(n > 0);
         if (n > numThreads) {
-          cout << "WARNING: Number of threads > CPU cores\n";
+          print("WARNING: Number of threads > CPU cores\n");
         }
         numThreads = n;
         break;
@@ -51,20 +55,26 @@ int main(int argc, char *argv[]) {
         break;
       }
       default: {
-        cout << usage << "\n";
+        print(usage, "\n");
         return 0;
       }
     }
   }
 
+  print(numThreads, " ", queueSize, "\n");
   ConPool pool(numThreads, queueSize);
   pool.start();
 
-  for (int i = 0; i < 10; i++) {
-    foo f;
-    pool.enqueue(&f, NULL, NULL);
+  for (int i = 1; i <= 10; i++) {
+    QueryType1 q1;
+    QueryType2 q2;
+    q1.input.x = i * 2;
+    q2.input.x = i * 3;
+    pool.enqueue(&q1, sizeof(q1));
+    pool.enqueue(&q2, sizeof(q2));
   }
 
   pool.stop();
+
   return 0;
 }

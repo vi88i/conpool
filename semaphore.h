@@ -21,11 +21,19 @@ public:
     N = n;
   }
 
+  /*
+    unique_lock is a RAII (locks the mutex by default)
+    test the condition:
+      if condition is true: continue in critical section
+      else release the lock, and wait for signal on condition variable.
+      When thread is signalled, lock mutex and check condition again, loop.
+
+    Spinlock: (continously lock, check if queue is empty and unlock => More CPU cycles)
+    Blocking: (lock, wait for signal on condition variable, unlock => less CPU cycles)  
+  */
   void wait() {
     unique_lock<mutex> locker(mu);
-    while (N == 0) {
-      cond.wait(locker);  
-    }
+    cond.wait(locker, [this] { return N > 0; });
     N = N - 1;
     locker.unlock();
   }
