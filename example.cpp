@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string>
+#include <memory>
 #include "conpool.h"
 #include <cppconn/prepared_statement.h>
 using namespace std;
@@ -23,7 +24,7 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
-    con->setSchema("test");
+    con->setSchema("test1");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
     prep_stmt->setInt(2, input.age);
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ConPool pool(numThreads, queueSize, address, user, passwd);
+  ConPool pool(numThreads, queueSize, address, user, passwd, unique_ptr<Scheduler>(new FCFS()));
   pool.start();
 
   for (int i = 1; i <= 100; i++) {

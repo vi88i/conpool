@@ -20,9 +20,11 @@ $ g++ --std=c++17 -I./mysql-connector-cpp/include/jdbc example.cpp -pthread -Wal
 ## Example
 
 ```c++
-...
-#include "conpool.h"
+#include <string>
+#include <memory>
 #include <cppconn/prepared_statement.h>
+#include "conpool.h"
+using namespace std;
 
 /* 
   - create a class which inherits abstract Job class, and implement run(sql::Connection*) method
@@ -54,7 +56,7 @@ public:
 
 
 /* Initialize thread pool */
-ConPool pool(numThreads, queueSize, "tcp://127.0.0.1:3306", "username", "password");
+ConPool pool(numThreads, queueSize, "tcp://127.0.0.1:3306", "username", "password", unique_ptr<Scheduler>(new FCFS()));
 
 /* start the connection pool */
 pool.start();
@@ -72,5 +74,4 @@ pool.stop();
 ```
 
 ## TODO
-1. FCFS scheduler
-2. Priority scheduler with aging
+1. Priority scheduler with aging
