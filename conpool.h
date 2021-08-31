@@ -4,6 +4,7 @@
 #include <thread>
 #include <mutex>
 #include <vector>
+#include <queue>
 #include <deque>
 #include <tuple>
 #include <cstring>
@@ -24,6 +25,7 @@ void worker(int, ConPool*);
 
 class Job {
 public:
+  int key = 0;
   virtual void run(sql::Connection*) = 0;
   virtual ~Job() {};
 };
@@ -47,6 +49,7 @@ class ConPool {
   unique_ptr<Scheduler> jobQueue;
   friend void worker(int id, ConPool* pool);
   friend class FCFS;  
+  friend class PriorityScheduler;
 public:
   ConPool(int n, int q, string a, string u, string p, unique_ptr<Scheduler> j) {
     assert(n > 0 && q > 0);
@@ -154,6 +157,54 @@ public:
     return jobQueue.size();
   }
 };
+
+class PriorityScheduler: public Scheduler {
+  /* [0, level - 1] priority levels */
+  int level;
+  ConPool *pool;
+  priority_queue<tuple<int, Job*>, vector<tuple<int, Job*>>, greater<tuple<int, Job*>>> jobQueue;
+public:
+  PriorityScheduler(int lvl=16) {
+    assert(lvl > 0);
+    level = lvl;
+    pool = NULL;
+  }
+  void setPool(ConPool *p) {
+    pool = p;
+  }  
+  void enqueue(Job* job, size_t sz) {
+    assert(pool != NULL);
+    assert(job->key >= 0 && job->key < level);
+    pool->mu_stop.lock();
+    if (pool->stopRequested) {
+      print("Failed to queue task as stop() is requested...\n");
+      pool->mu_stop.unlock();
+      return;
+    }
+    pool->mu_stop.unlock();
+
+    pool->empty.wait();
+    pool->mu_queue.lock();
+    Job *j = (Job*)malloc(sz);
+    assert(j != NULL);
+    memcpy(j, job, sz);
+    jobQueue.push({j->key, j});
+    pool->mu_queue.unlock();
+    pool->full.signal();
+  }
+  Job* next() {
+    if (jobQueue.empty()) {
+      return NULL;
+    }
+    Job *job = get<1>(jobQueue.top());
+    jobQueue.pop();
+    return job;
+  }  
+  size_t size() {
+    return jobQueue.size();
+  }
+};
+
 
 void worker(int id, ConPool *pool) {
   bool mu_stop_locked, mu_driver_locked, mu_queue_locked;

@@ -19,6 +19,8 @@ $ g++ --std=c++17 -I./mysql-connector-cpp/include/jdbc example.cpp -pthread -Wal
 
 ## Example
 
+### FCFS
+
 ```c++
 #include <string>
 #include <memory>
@@ -55,8 +57,15 @@ public:
 */
 
 
-/* Initialize thread pool */
-ConPool pool(numThreads, queueSize, "tcp://127.0.0.1:3306", "username", "password", unique_ptr<Scheduler>(new FCFS()));
+/* Initialize FCFS thread pool */
+ConPool pool(
+  numThreads, 
+  queueSize, 
+  "tcp://127.0.0.1:3306", 
+  "username", 
+  "password", 
+  unique_ptr<Scheduler>(new FCFS())
+);
 
 /* start the connection pool */
 pool.start();
@@ -67,6 +76,38 @@ q1.input.age = 21;
 pool.enqueue(&q1, sizeof(q1));
 strcpy(q1.input.name, "Vighnesh Kamath");
 q1.input.age = 22;
+pool.enqueue(&q1, sizeof(q1));
+
+/* gracefully stop the connection pool */
+pool.stop();
+```
+
+### Priority scheduler
+
+```c++
+...
+
+/* Initialize FCFS thread pool */
+ConPool pool(
+  numThreads, 
+  queueSize, 
+  "tcp://127.0.0.1:3306", 
+  "username", 
+  "password", 
+  unique_ptr<Scheduler>(new PriorityScheduler(256)) // levels of priority = 256
+);
+
+/* start the connection pool */
+pool.start();
+
+QueryType1 q1;
+strcpy(q1.input.name, "Vighnesh Nayak S");
+q1.input.age = 21;
+q1.key = 255;
+pool.enqueue(&q1, sizeof(q1));
+strcpy(q1.input.name, "Vighnesh Kamath");
+q1.input.age = 22;
+q1.key = 0;
 pool.enqueue(&q1, sizeof(q1));
 
 /* gracefully stop the connection pool */
