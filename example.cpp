@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string>
 #include "conpool.h"
-#include "utils.h"
 #include <cppconn/prepared_statement.h>
 using namespace std;
 
@@ -54,8 +53,8 @@ int main(int argc, char *argv[]) {
   extern char *optarg;
   static char usage[] = "args: -n numThreads -q queueSize";
 
-  // get number of CPU cores
   string user, passwd, address;
+  // get number of CPU cores
   int numThreads = thread::hardware_concurrency();
   int queueSize = 1024;
 
