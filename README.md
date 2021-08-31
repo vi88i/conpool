@@ -72,4 +72,5 @@ pool.stop();
 ```
 
 ## TODO
-1. Priority scheduler with aging.
+1. FCFS scheduler
+2. Priority scheduler with aging
