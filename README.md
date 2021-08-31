@@ -87,7 +87,7 @@ pool.stop();
 ```c++
 ...
 
-/* Initialize FCFS thread pool */
+/* Initialize priority scheduler thread pool */
 ConPool pool(
   numThreads, 
   queueSize, 
