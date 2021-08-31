@@ -14,7 +14,12 @@ mysql connection pool for cpp using thread pool design pattern.
 ```bash
 $ chmod +x setup.sh
 $ ./setup.sh
-$ g++ --std=c++17 -I./mysql-connector-cpp/include/jdbc example.cpp -pthread -Wall -lmysqlcppconn && ./a.out -n 8 -q 1024 -u <username> -p <password> -a tcp://127.0.0.1:3306
+```
+
+## Compile
+
+```c++
+$ g++ --std=c++17 -I/<path to conpool repo>/mysql-connector-cpp/include/jdbc <your cpp file> -pthread -Wall -lmysqlcppconn
 ```
 
 ## Example
@@ -87,7 +92,7 @@ pool.stop();
 ```c++
 ...
 
-/* Initialize FCFS thread pool */
+/* Initialize priority scheduler thread pool */
 ConPool pool(
   numThreads, 
   queueSize, 
