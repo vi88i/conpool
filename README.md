@@ -16,7 +16,7 @@ $ chmod +x setup.sh
 $ ./setup.sh
 ```
 
-## Usage
+## Compile
 
 ```c++
 $ g++ --std=c++17 -I/<path to conpool repo>/mysql-connector-cpp/include/jdbc <your cpp file> -pthread -Wall -lmysqlcppconn
