@@ -110,6 +110,15 @@ public:
     
     print("stop() received, waiting for all jobs to be completed...\n");
 
+    /* signal all activeThreads if they are waiting on empty queue */
+    mu_queue.lock();
+    if (tasksRemaining() == 0) {
+      for (int i = 0; i < activeThreads; i++) {
+        full.signal();  
+      }
+    }
+    mu_queue.unlock();
+
     for (thread &t: workers) {
       t.join();
     }
@@ -324,22 +333,23 @@ void worker(int id, ConPool *pool) {
         pool->mu_queue.lock();
         mu_queue_locked = true;
 
-        auto start = chrono::high_resolution_clock::now();
-        
-        job = pool->next();
-        job->run(con);
-        free(job);
-        job = NULL;
+        if ((int)pool->tasksRemaining() > 0) {
+          auto start = chrono::high_resolution_clock::now();
+          
+          job = pool->next();
+          job->run(con);
+          free(job);
+          job = NULL;
 
-        auto stop = chrono::high_resolution_clock::now();
-        auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
-        pool->execTime += duration.count();
+          auto stop = chrono::high_resolution_clock::now();
+          auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
+          pool->execTime += duration.count();
+          // print("Total: ", pool->execTime, "\n");
+        }
 
         pool->mu_queue.unlock();
         mu_queue_locked = false;
         pool->empty.signal();
-
-        // print("Total: ", pool->execTime, "\n");  
       }
     } catch (sql::SQLException &e) {
       if (job != NULL) {

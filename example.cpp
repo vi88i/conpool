@@ -24,7 +24,6 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
-    print("test1\n");
     con->setSchema("test");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
@@ -41,7 +40,6 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
-    print("test2\n");
     con->setSchema("test2");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
