@@ -24,6 +24,7 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
+    print("test1\n");
     con->setSchema("test");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
@@ -40,6 +41,7 @@ public:
     int age;
   } input;  
   void run(sql::Connection *con) {
+    print("test2\n");
     con->setSchema("test2");
     sql::PreparedStatement *prep_stmt = con->prepareStatement("INSERT INTO mytable VALUES (?, ?)");
     prep_stmt->setString(1, input.name);
@@ -99,7 +101,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ConPool pool(numThreads, queueSize, address, user, passwd, unique_ptr<Scheduler>(new PriorityScheduler(256)));
+  ConPool pool(numThreads, queueSize, address, user, passwd, unique_ptr<Scheduler>(new AgeingPriorityScheduler(16, 1)));
   pool.start();
 
   for (int i = 1; i <= 100; i++) {
@@ -107,10 +109,10 @@ int main(int argc, char *argv[]) {
     QueryType2 q2;
     strcpy(q1.input.name, "Vighnesh Nayak S");
     q1.input.age = i * 2;
-    q1.key = 256 - i - 1;
+    q1.key = 15;
     strcpy(q2.input.name, "Vighnesh Nayak S");
     q2.input.age = i * 3;
-    q2.key = i;
+    q2.key = 0;
     pool.enqueue(&q1, sizeof(q1));
     pool.enqueue(&q2, sizeof(q2));
   }

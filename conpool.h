@@ -10,6 +10,7 @@
 #include <cstring>
 #include <chrono>
 #include <memory>
+#include <math.h>
 #include "utils.h"
 #include "semaphore.h"
 #include <mysql_connection.h>
@@ -40,8 +41,8 @@ public:
 
 class ConPool {
   bool stopRequested, startRequested;
-  long long execTime;
   int activeThreads, numThreads, queueSize;
+  long long execTime;
   string user, passwd, address;
   mutex mu_queue, mu_driver, mu_stop;
   Semaphore empty, full;
@@ -50,6 +51,7 @@ class ConPool {
   friend void worker(int id, ConPool* pool);
   friend class FCFS;  
   friend class PriorityScheduler;
+  friend class AgeingPriorityScheduler;
 public:
   ConPool(int n, int q, string a, string u, string p, unique_ptr<Scheduler> j) {
     assert(n > 0 && q > 0);
@@ -159,7 +161,6 @@ public:
 };
 
 class PriorityScheduler: public Scheduler {
-  /* [0, level - 1] priority levels */
   int level;
   ConPool *pool;
   priority_queue<tuple<int, Job*>, vector<tuple<int, Job*>>, greater<tuple<int, Job*>>> jobQueue;
@@ -205,6 +206,81 @@ public:
   }
 };
 
+class AgeingPriorityScheduler: public Scheduler {
+  int level; /* levels of priority */
+  int ageingFrequency; /* number of tasks that needs to be completed before ageing once */
+  long long tasksFinished; /* number of tasks finished */
+  ConPool *pool;
+  priority_queue<
+    tuple<double, long long, Job*>, 
+    vector<tuple<double, long long, Job*>>, 
+    greater<tuple<double, long long, Job*>>> jobQueue;
+public:
+  AgeingPriorityScheduler(int lvl=16, int af=1) {
+    assert(lvl > 0 && af >= 1);
+    level = lvl;
+    pool = NULL;
+    tasksFinished = 0LL;
+    ageingFrequency = af;
+  }
+  void setPool(ConPool *p) {
+    pool = p;
+  }  
+  void enqueue(Job* job, size_t sz) {
+    assert(pool != NULL);
+    assert(job->key >= 0 && job->key < level);
+    pool->mu_stop.lock();
+    if (pool->stopRequested) {
+      print("Failed to queue task as stop() is requested...\n");
+      pool->mu_stop.unlock();
+      return;
+    }
+    pool->mu_stop.unlock();
+
+    pool->empty.wait();
+    pool->mu_queue.lock();
+    Job *j = (Job*)malloc(sz);
+    assert(j != NULL);
+    memcpy(j, job, sz);
+    jobQueue.push({j->key, tasksFinished, j});
+    pool->mu_queue.unlock();
+    pool->full.signal();
+  }
+  void age() {
+    /* 
+      new rank = min(level - 1, old rank + log10(tasksFinished - tasksFinished when task was inserted))
+    */
+    priority_queue<
+      tuple<double, long long, Job*>, 
+      vector<tuple<double, long long, Job*>>, 
+      greater<tuple<double, long long, Job*>>> pq;
+    while (!jobQueue.empty()) {
+      double key = get<0>(jobQueue.top());
+      long long insertTime = get<1>(jobQueue.top());
+      Job *job = get<2>(jobQueue.top());
+      jobQueue.pop();
+      key = min(level - 1.0, key + log10(tasksFinished - insertTime));
+      pq.push({key, insertTime, job});
+    }
+    jobQueue = pq;
+  }
+  Job* next() {
+    if (jobQueue.empty()) {
+      return NULL;
+    }
+    Job *job = get<2>(jobQueue.top());
+    jobQueue.pop();
+    tasksFinished++;
+    /* check if we have to perform ageing */
+    if (tasksFinished % ageingFrequency == 0) {
+      age();  
+    }
+    return job;
+  }  
+  size_t size() {
+    return jobQueue.size();
+  }
+};
 
 void worker(int id, ConPool *pool) {
   bool mu_stop_locked, mu_driver_locked, mu_queue_locked;
@@ -250,7 +326,7 @@ void worker(int id, ConPool *pool) {
 
         auto start = chrono::high_resolution_clock::now();
         
-        job = pool->next();;
+        job = pool->next();
         job->run(con);
         free(job);
         job = NULL;

@@ -93,13 +93,14 @@ pool.stop();
 ...
 
 /* Initialize priority scheduler thread pool */
+int levels = 256; // levels of priority = 256
 ConPool pool(
   numThreads, 
   queueSize, 
   "tcp://127.0.0.1:3306", 
   "username", 
   "password", 
-  unique_ptr<Scheduler>(new PriorityScheduler(256)) // levels of priority = 256
+  unique_ptr<Scheduler>(new PriorityScheduler(levels))
 );
 
 /* start the connection pool */
@@ -119,5 +120,34 @@ pool.enqueue(&q1, sizeof(q1));
 pool.stop();
 ```
 
-## TODO
-1. Priority scheduler with aging
+### Priority scheduler with ageing
+
+```c++
+/* Initialize ageing priority scheduler thread pool */
+...
+int level = 16, ageingFrequency = 5;
+ConPool pool(
+  numThreads, 
+  queueSize, 
+  "tcp://127.0.0.1:3306", 
+  "username", 
+  "password",
+  unique_ptr<Scheduler>(new AgeingPriorityScheduler(level, ageingFrequency))
+);
+
+/* start the connection pool */
+pool.start();
+
+QueryType1 q1;
+strcpy(q1.input.name, "Vighnesh Nayak S");
+q1.input.age = 21;
+q1.key = 15;
+pool.enqueue(&q1, sizeof(q1));
+strcpy(q1.input.name, "Vighnesh Kamath");
+q1.input.age = 22;
+q1.key = 0;
+pool.enqueue(&q1, sizeof(q1));
+
+/* gracefully stop the connection pool */
+pool.stop();
+```
