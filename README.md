@@ -3,7 +3,7 @@
 mysql connection pool for cpp using thread pool design pattern.
 
 ## Why connection pool?
-- mysql-connector-cpp uses tcp to establish connection with mysql server. Every query requires tcp connection establishment and termination, which can slow things down.
+- mysql-connector-cpp uses tcp to establish connection with mysql server. Every query requires tcp connection establishment and tcp termination, which can slow things down.
 - conpool (Connection pool) uses thread pool design pattern. Here we spin <em>n</em> threads and each thread will establish tcp connection with mysql server during start up. conpool maintains a job queue of size <em>q</em> in which we can queue sql queries along with input data. Whenever a thread becomes available, it is assigned with a task from job queue. 
 - As we can see, we don't terminate already exisiting tcp connection and we are trying to reuse it as much as possible, this improves concurrency and tasks can be completed faster. 
 - More threads doesn't imply higher concurrency. Because the optimal number of threads is a function of number of CPU cores, which is available through <code>thread::hardware_concurrency</code>.
